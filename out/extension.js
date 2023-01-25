@@ -1,9 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deactivate = exports.activate = void 0;
-const Vscode = require("vscode");
 const fs_1 = require("fs");
 const path_1 = require("path");
+const Vscode = require("vscode");
 const utils_1 = require("./utils");
 const createFileSystemWatcher = () => {
     const folders = Vscode.workspace.workspaceFolders;
@@ -11,45 +11,78 @@ const createFileSystemWatcher = () => {
     const fileSystemWatcher = Vscode.workspace.createFileSystemWatcher(pattern, false, false, false);
     return fileSystemWatcher;
 };
-const createIndexFile = (path) => {
-    const filename = (0, path_1.join)(path, '/', 'index.ts');
+const createIndexFile = (path, extension) => {
+    const filename = (0, path_1.join)(path, '/', `index.${extension}`);
     const emptyFileContent = '';
     (0, fs_1.writeFileSync)(filename, emptyFileContent);
 };
-const exportFileInIndex = (filepath) => {
-    const isAnIndexFile = (0, utils_1.fileIsAnIndex)(filepath);
+const exportFileInIndex = (filepath, extension) => {
+    const isAnIndexFile = (0, utils_1.fileIsAnIndex)(filepath, extension);
     if (isAnIndexFile) {
         return;
     }
-    const folder = (0, utils_1.getFileFolder)(filepath);
+    const folder = (0, utils_1.getItemFolder)(filepath);
     const filename = (0, utils_1.getFilenameWithoutExtensionFromPath)(filepath);
-    const indexFile = (0, path_1.join)(folder, '/', 'index.ts');
+    const indexFile = (0, path_1.join)(folder, '/', `index.${extension}`);
+    (0, fs_1.openSync)(indexFile, 'w');
     const isFileEmpty = (0, utils_1.fileIsEmpty)(indexFile);
     const fileContent = isFileEmpty ?
         `export * from './${filename}';` :
         `\nexport * from './${filename}';`;
     (0, fs_1.appendFileSync)(indexFile, fileContent);
 };
-const main = (uri) => {
+const validateItem = (itemPath, settings) => {
+    const splittedItemPath = itemPath.split('\\');
+    const isAPathToIgnore = (0, utils_1.validatePathsToIgnore)(splittedItemPath, settings.ignore);
+    const isAIncludedPath = (0, utils_1.validateIfPathIsIncluded)(itemPath, settings.includes);
+    if (!isAIncludedPath || !isAPathToIgnore) {
+        return false;
+    }
+    return true;
+};
+const getFileExtension = (type) => {
+    const acceptedFileType = type.toUpperCase();
+    const extension = acceptedFileType === 'JAVASCRIPT' ?
+        'js' :
+        'ts';
+    return extension;
+};
+const exportFolderInIndex = (filepath, extension) => {
+    const foldername = (0, utils_1.getFolderName)(filepath);
+    const parentFolder = (0, utils_1.getItemFolder)(filepath);
+    const indexFile = (0, path_1.join)(parentFolder, '/', `index.${extension}`);
+    (0, fs_1.openSync)(indexFile, 'w');
+    const isFileEmpty = (0, utils_1.fileIsEmpty)(indexFile);
+    const fileContent = isFileEmpty ?
+        `export * from './${foldername}';` :
+        `\nexport * from './${foldername}';`;
+    (0, fs_1.appendFileSync)(indexFile, fileContent);
+};
+const main = (uri, settings) => {
     try {
-        const creationType = (0, utils_1.verifyCreationType)(uri);
-        if (creationType === utils_1.CreationTypes.folder) {
-            return createIndexFile(uri.fsPath);
+        const itemPath = uri.fsPath;
+        const extension = getFileExtension(settings.type);
+        const isAValidItem = validateItem(itemPath, settings);
+        if (!isAValidItem) {
+            return;
         }
-        exportFileInIndex(uri.fsPath);
+        const itemType = (0, utils_1.verifyItemType)(uri);
+        if (itemType === utils_1.ItemTypes.folder) {
+            createIndexFile(itemPath, extension);
+            exportFolderInIndex(itemPath, extension);
+            return;
+        }
+        exportFileInIndex(itemPath, extension);
     }
     catch (error) {
         console.log(error);
     }
 };
 function activate(context) {
-    const watcher = createFileSystemWatcher();
-    watcher.onDidCreate((uri) => main(uri));
     console.log('The typescript indexer is active now!');
-    // let disposable = vscode.commands.registerCommand('tsindexer.helloWorld', () => {
-    // 	vscode.window.showInformationMessage('Hello World from typescript-indexer!');
-    // });
-    // context.subscriptions.push(disposable);
+    const settings = (0, utils_1.loadConfigFile)();
+    const watcher = createFileSystemWatcher();
+    watcher.onDidCreate((uri) => main(uri, settings));
 }
 exports.activate = activate;
 function deactivate() { }

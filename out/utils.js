@@ -1,19 +1,40 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.fileIsAnIndex = exports.fileIsEmpty = exports.verifyCreationType = exports.getFilenameWithoutExtensionFromPath = exports.getFileFolder = exports.CreationTypes = void 0;
+exports.loadConfigFile = exports.fileIsAnIndex = exports.fileIsEmpty = exports.verifyItemType = exports.getFilenameWithoutExtensionFromPath = exports.getFolderName = exports.getItemFolder = exports.validateIfPathIsIncluded = exports.validatePathsToIgnore = exports.ItemTypes = void 0;
+const Vscode = require("vscode");
 const path_1 = require("path");
 const fs_1 = require("fs");
-var CreationTypes;
-(function (CreationTypes) {
-    CreationTypes[CreationTypes["folder"] = 1] = "folder";
-    CreationTypes[CreationTypes["file"] = 2] = "file";
-})(CreationTypes = exports.CreationTypes || (exports.CreationTypes = {}));
-const getFileFolder = (filepath) => {
+var ItemTypes;
+(function (ItemTypes) {
+    ItemTypes[ItemTypes["folder"] = 1] = "folder";
+    ItemTypes[ItemTypes["file"] = 2] = "file";
+})(ItemTypes = exports.ItemTypes || (exports.ItemTypes = {}));
+const validatePathsToIgnore = (itemPath, pathsToIgnore) => {
+    const isANodeModulesItem = !!itemPath.find((item) => item === 'node_modules');
+    if (isANodeModulesItem) {
+        return false;
+    }
+    const isAValidPath = !pathsToIgnore
+        .map((pathToIgnore) => !!itemPath.find((item => item === pathToIgnore)))
+        .find((item) => item);
+    return isAValidPath;
+};
+exports.validatePathsToIgnore = validatePathsToIgnore;
+const validateIfPathIsIncluded = (itemPath, includedPath) => {
+    const isAIncludedPath = itemPath.includes(includedPath);
+    return isAIncludedPath;
+};
+exports.validateIfPathIsIncluded = validateIfPathIsIncluded;
+const getItemFolder = (filepath) => {
     const splittedFilepath = filepath.split("\\");
     const [_, ...fileWithoutPath] = splittedFilepath.reverse();
     return (0, path_1.join)(...fileWithoutPath.reverse());
 };
-exports.getFileFolder = getFileFolder;
+exports.getItemFolder = getItemFolder;
+const getFolderName = (filepath) => {
+    return filepath.split('\\').pop();
+};
+exports.getFolderName = getFolderName;
 const getFilenameWithoutExtensionFromPath = (filepath) => {
     const filename = filepath.split('\\').pop();
     if (!filename) {
@@ -23,22 +44,30 @@ const getFilenameWithoutExtensionFromPath = (filepath) => {
     return filenameWithoutExtension;
 };
 exports.getFilenameWithoutExtensionFromPath = getFilenameWithoutExtensionFromPath;
-const verifyCreationType = (uri) => {
+const verifyItemType = (uri) => {
     const isFile = uri.path.includes('.');
     if (isFile) {
-        return CreationTypes.file;
+        return ItemTypes.file;
     }
-    return CreationTypes.folder;
+    return ItemTypes.folder;
 };
-exports.verifyCreationType = verifyCreationType;
+exports.verifyItemType = verifyItemType;
 const fileIsEmpty = (filepath) => {
     const fileData = (0, fs_1.readFileSync)(filepath).toString();
     const isEmpty = !fileData.length;
     return isEmpty;
 };
 exports.fileIsEmpty = fileIsEmpty;
-const fileIsAnIndex = (filepath) => {
-    return filepath.includes('index.ts');
+const fileIsAnIndex = (filepath, extension) => {
+    return filepath.includes(`index.${extension}`);
 };
 exports.fileIsAnIndex = fileIsAnIndex;
+const loadConfigFile = () => {
+    const folders = Vscode.workspace.workspaceFolders;
+    const rootPath = folders[0].uri.fsPath;
+    const configFilePath = (0, path_1.join)(rootPath, 'indexerconfig.json');
+    const fileContent = (0, fs_1.readFileSync)(configFilePath).toString();
+    return JSON.parse(fileContent);
+};
+exports.loadConfigFile = loadConfigFile;
 //# sourceMappingURL=utils.js.map
