@@ -1,9 +1,10 @@
-import { appendFileSync, openSync, writeFileSync } from 'fs';
+import { accessSync, appendFileSync, openSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import * as Vscode from 'vscode';
 
 import {
 	ItemTypes,
+	fileExists,
 	fileIsAnIndex,
 	fileIsEmpty,
 	getFilenameWithoutExtensionFromPath,
@@ -46,15 +47,16 @@ const createIndexFile = (path: string, extension: string) => {
 };
 
 const exportFileInIndex = (filepath: string, extension: string) => {
-	const isAnIndexFile = fileIsAnIndex(filepath, extension);
-
-	if (isAnIndexFile) { return; }
 
 	const folder = getItemFolder(filepath);
 	const filename = getFilenameWithoutExtensionFromPath(filepath);
 	const indexFile = join(folder, '/', `index.${extension}`);
 
-	openSync(indexFile, 'w');
+	const indexExists = fileExists(indexFile);
+
+	if (!indexExists) {
+		createIndexFile(folder, extension);
+	}
 
 	const isFileEmpty = fileIsEmpty(indexFile);
 
@@ -65,8 +67,13 @@ const exportFileInIndex = (filepath: string, extension: string) => {
 	appendFileSync(indexFile, fileContent);
 };
 
-const validateItem = (itemPath: string, settings: Settings) => {
+const validateItem = (itemPath: string, settings: Settings, extension: string) => {
+	const isAnIndexFile = fileIsAnIndex(itemPath, extension);
+
+	if (isAnIndexFile) { return; }
+
 	const splittedItemPath = itemPath.split('\\');
+
 
 	const isAPathToIgnore = validatePathsToIgnore(splittedItemPath, settings.ignore);
 
@@ -77,7 +84,7 @@ const validateItem = (itemPath: string, settings: Settings) => {
 	return true;
 };
 
-const getFileExtension = (type: string) => {
+const getSelectedExtension = (type: string) => {
 	const acceptedFileType = type.toUpperCase();
 
 	const extension = acceptedFileType === 'JAVASCRIPT' ?
@@ -87,12 +94,24 @@ const getFileExtension = (type: string) => {
 	return extension;
 };
 
+const getFileExtension = (itemPath: string) => {
+	const [extension] = itemPath.split('.').reverse();
+
+	return extension;
+};
+
+const isAValidExtension = (extension: string, acceptedExtension: string) => extension === acceptedExtension;
+
 const exportFolderInIndex = (filepath: string, extension: string) => {
 	const foldername = getFolderName(filepath);
 	const parentFolder = getItemFolder(filepath);
 	const indexFile = join(parentFolder, '/', `index.${extension}`);
 
-	openSync(indexFile, 'w');
+	const indexExists = fileExists(indexFile);
+
+	if (!indexExists) {
+		createIndexFile(parentFolder, extension);
+	}
 
 	const isFileEmpty = fileIsEmpty(indexFile);
 
@@ -103,24 +122,31 @@ const exportFolderInIndex = (filepath: string, extension: string) => {
 	appendFileSync(indexFile, fileContent);
 };
 
+
 const main = (uri: Vscode.Uri, settings: Settings) => {
 	try {
 		const itemPath = uri.fsPath;
-		const extension = getFileExtension(settings.type);
+		const selectedExtension = getSelectedExtension(settings.type);
 
-		const isAValidItem = validateItem(itemPath, settings);
+		const isAValidItem = validateItem(itemPath, settings, selectedExtension);
 
 		if (!isAValidItem) { return; }
 
 		const itemType = verifyItemType(uri);
 
 		if (itemType === ItemTypes.folder) {
-			createIndexFile(itemPath, extension);
-			exportFolderInIndex(itemPath, extension);
+			createIndexFile(itemPath, selectedExtension);
+			exportFolderInIndex(itemPath, selectedExtension);
 			return;
 		}
 
-		exportFileInIndex(itemPath, extension);
+		const fileExtension = getFileExtension(itemPath);
+
+		const extensionIsValid = isAValidExtension(fileExtension, selectedExtension);
+
+		if (!extensionIsValid) { return; }
+
+		exportFileInIndex(itemPath, selectedExtension);
 	} catch (error) {
 		console.log(error);
 	}

@@ -1,6 +1,6 @@
 import * as Vscode from 'vscode';
 import { join } from "path";
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 
 export enum ItemTypes {
   folder = 1,
@@ -21,9 +21,17 @@ export const validatePathsToIgnore = (itemPath: string[], pathsToIgnore: string[
 
 export const validateIfPathIsIncluded = (itemPath: string, includedPath: string) => {
 
-  const isAIncludedPath = itemPath.includes(includedPath);
+  const splittedPath = itemPath.split('\\');
 
-  return isAIncludedPath;
+  const includedPathIndex = splittedPath.indexOf(includedPath);
+
+  if (includedPathIndex === -1) { return false; }
+
+  const nextItem = splittedPath[includedPathIndex + 1];
+
+  if (!nextItem) { return false; }
+
+  return true;
 
 };
 
@@ -66,6 +74,8 @@ export const fileIsEmpty = (filepath: string) => {
 
   return isEmpty;
 };
+
+export const fileExists = (filepath: string) => existsSync(filepath);
 
 export const fileIsAnIndex = (filepath: string, extension: string) => {
   return filepath.includes(`index.${extension}`);

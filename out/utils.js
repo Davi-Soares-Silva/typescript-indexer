@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.loadConfigFile = exports.fileIsAnIndex = exports.fileIsEmpty = exports.verifyItemType = exports.getFilenameWithoutExtensionFromPath = exports.getFolderName = exports.getItemFolder = exports.validateIfPathIsIncluded = exports.validatePathsToIgnore = exports.ItemTypes = void 0;
+exports.loadConfigFile = exports.fileIsAnIndex = exports.fileExists = exports.fileIsEmpty = exports.verifyItemType = exports.getFilenameWithoutExtensionFromPath = exports.getFolderName = exports.getItemFolder = exports.validateIfPathIsIncluded = exports.validatePathsToIgnore = exports.ItemTypes = void 0;
 const Vscode = require("vscode");
 const path_1 = require("path");
 const fs_1 = require("fs");
@@ -21,8 +21,16 @@ const validatePathsToIgnore = (itemPath, pathsToIgnore) => {
 };
 exports.validatePathsToIgnore = validatePathsToIgnore;
 const validateIfPathIsIncluded = (itemPath, includedPath) => {
-    const isAIncludedPath = itemPath.includes(includedPath);
-    return isAIncludedPath;
+    const splittedPath = itemPath.split('\\');
+    const includedPathIndex = splittedPath.indexOf(includedPath);
+    if (includedPathIndex === -1) {
+        return false;
+    }
+    const nextItem = splittedPath[includedPathIndex + 1];
+    if (!nextItem) {
+        return false;
+    }
+    return true;
 };
 exports.validateIfPathIsIncluded = validateIfPathIsIncluded;
 const getItemFolder = (filepath) => {
@@ -58,6 +66,8 @@ const fileIsEmpty = (filepath) => {
     return isEmpty;
 };
 exports.fileIsEmpty = fileIsEmpty;
+const fileExists = (filepath) => (0, fs_1.existsSync)(filepath);
+exports.fileExists = fileExists;
 const fileIsAnIndex = (filepath, extension) => {
     return filepath.includes(`index.${extension}`);
 };

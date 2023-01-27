@@ -17,21 +17,24 @@ const createIndexFile = (path, extension) => {
     (0, fs_1.writeFileSync)(filename, emptyFileContent);
 };
 const exportFileInIndex = (filepath, extension) => {
-    const isAnIndexFile = (0, utils_1.fileIsAnIndex)(filepath, extension);
-    if (isAnIndexFile) {
-        return;
-    }
     const folder = (0, utils_1.getItemFolder)(filepath);
     const filename = (0, utils_1.getFilenameWithoutExtensionFromPath)(filepath);
     const indexFile = (0, path_1.join)(folder, '/', `index.${extension}`);
-    (0, fs_1.openSync)(indexFile, 'w');
+    const indexExists = (0, utils_1.fileExists)(indexFile);
+    if (!indexExists) {
+        createIndexFile(folder, extension);
+    }
     const isFileEmpty = (0, utils_1.fileIsEmpty)(indexFile);
     const fileContent = isFileEmpty ?
         `export * from './${filename}';` :
         `\nexport * from './${filename}';`;
     (0, fs_1.appendFileSync)(indexFile, fileContent);
 };
-const validateItem = (itemPath, settings) => {
+const validateItem = (itemPath, settings, extension) => {
+    const isAnIndexFile = (0, utils_1.fileIsAnIndex)(itemPath, extension);
+    if (isAnIndexFile) {
+        return;
+    }
     const splittedItemPath = itemPath.split('\\');
     const isAPathToIgnore = (0, utils_1.validatePathsToIgnore)(splittedItemPath, settings.ignore);
     const isAIncludedPath = (0, utils_1.validateIfPathIsIncluded)(itemPath, settings.includes);
@@ -40,18 +43,26 @@ const validateItem = (itemPath, settings) => {
     }
     return true;
 };
-const getFileExtension = (type) => {
+const getSelectedExtension = (type) => {
     const acceptedFileType = type.toUpperCase();
     const extension = acceptedFileType === 'JAVASCRIPT' ?
         'js' :
         'ts';
     return extension;
 };
+const getFileExtension = (itemPath) => {
+    const [extension] = itemPath.split('.').reverse();
+    return extension;
+};
+const isAValidExtension = (extension, acceptedExtension) => extension === acceptedExtension;
 const exportFolderInIndex = (filepath, extension) => {
     const foldername = (0, utils_1.getFolderName)(filepath);
     const parentFolder = (0, utils_1.getItemFolder)(filepath);
     const indexFile = (0, path_1.join)(parentFolder, '/', `index.${extension}`);
-    (0, fs_1.openSync)(indexFile, 'w');
+    const indexExists = (0, utils_1.fileExists)(indexFile);
+    if (!indexExists) {
+        createIndexFile(parentFolder, extension);
+    }
     const isFileEmpty = (0, utils_1.fileIsEmpty)(indexFile);
     const fileContent = isFileEmpty ?
         `export * from './${foldername}';` :
@@ -61,18 +72,23 @@ const exportFolderInIndex = (filepath, extension) => {
 const main = (uri, settings) => {
     try {
         const itemPath = uri.fsPath;
-        const extension = getFileExtension(settings.type);
-        const isAValidItem = validateItem(itemPath, settings);
+        const selectedExtension = getSelectedExtension(settings.type);
+        const isAValidItem = validateItem(itemPath, settings, selectedExtension);
         if (!isAValidItem) {
             return;
         }
         const itemType = (0, utils_1.verifyItemType)(uri);
         if (itemType === utils_1.ItemTypes.folder) {
-            createIndexFile(itemPath, extension);
-            exportFolderInIndex(itemPath, extension);
+            createIndexFile(itemPath, selectedExtension);
+            exportFolderInIndex(itemPath, selectedExtension);
             return;
         }
-        exportFileInIndex(itemPath, extension);
+        const fileExtension = getFileExtension(itemPath);
+        const extensionIsValid = isAValidExtension(fileExtension, selectedExtension);
+        if (!extensionIsValid) {
+            return;
+        }
+        exportFileInIndex(itemPath, selectedExtension);
     }
     catch (error) {
         console.log(error);
