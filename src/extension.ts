@@ -1,4 +1,4 @@
-import { accessSync, appendFileSync, openSync, writeFileSync } from 'fs';
+import { appendFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import * as Vscode from 'vscode';
 
@@ -13,7 +13,8 @@ import {
 	loadConfigFile,
 	validateIfPathIsIncluded,
 	validatePathsToIgnore,
-	verifyItemType
+	verifyItemType,
+	writeIndexNewLine
 } from './utils';
 
 type Settings = {
@@ -58,13 +59,7 @@ const exportFileInIndex = (filepath: string, extension: string) => {
 		createIndexFile(folder, extension);
 	}
 
-	const isFileEmpty = fileIsEmpty(indexFile);
-
-	const fileContent = isFileEmpty ?
-		`export * from './${filename}';` :
-		`\nexport * from './${filename}';`;
-
-	appendFileSync(indexFile, fileContent);
+	writeIndexNewLine(indexFile, filename);
 };
 
 const validateItem = (itemPath: string, settings: Settings, extension: string) => {

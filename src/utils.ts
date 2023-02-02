@@ -1,16 +1,19 @@
 import * as Vscode from 'vscode';
 import { join } from "path";
-import { existsSync, readFileSync } from 'fs';
+import { appendFileSync, existsSync, readFileSync, unlinkSync } from 'fs';
+import defaultSettings from './utils/default-settings';
 
 export enum ItemTypes {
   folder = 1,
   file = 2,
-}
+};
 
 export const validatePathsToIgnore = (itemPath: string[], pathsToIgnore: string[]) => {
   const isANodeModulesItem = !!itemPath.find((item) => item === 'node_modules');
 
   if (isANodeModulesItem) { return false; }
+
+  if (!pathsToIgnore?.length) { return true; }
 
   const isAValidPath = !pathsToIgnore
     .map((pathToIgnore) => !!itemPath.find((item => item === pathToIgnore)))
@@ -47,7 +50,6 @@ export const getFolderName = (filepath: string) => {
   return filepath.split('\\').pop();
 };
 
-
 export const getFilenameWithoutExtensionFromPath = (filepath: string) => {
   const filename = filepath.split('\\').pop();
 
@@ -57,7 +59,6 @@ export const getFilenameWithoutExtensionFromPath = (filepath: string) => {
 
   return filenameWithoutExtension;
 };
-
 
 export const verifyItemType = (uri: Vscode.Uri) => {
   const isFile = uri.path.includes('.');
@@ -88,7 +89,37 @@ export const loadConfigFile = () => {
 
   const configFilePath = join(rootPath, 'indexerconfig.json');
 
+  const configFileExists = existsSync(configFilePath);
+
+  if (!configFileExists) {
+    return defaultSettings;
+  }
+
   const fileContent = readFileSync(configFilePath).toString();
 
   return JSON.parse(fileContent);
+};
+
+export const writeIndexNewLine = (filepath: string, filename: string) => {
+  const indexExists = existsSync(filepath);
+
+  if (!indexExists) { return; }
+
+  const fileContent = readFileSync(filepath)
+    .toString()
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => `${line}\n`);
+
+  const newLine = `export * from './${filename}';\n`;
+
+  const allLines = [...fileContent, newLine].sort();
+
+  unlinkSync(filepath);
+  appendFileSync(filepath, '');
+
+  for (const line of allLines) {
+    appendFileSync(filepath, line);
+  }
+
 };
